@@ -48,5 +48,15 @@
 - ✅ 代码格式化和规范化
 - ✅ 更新版本号到v0.1.2
 
+### v0.1.3 (已完成 - 修复CI)
+**目标**: 修复GitHub Actions构建失败问题，补充缺失的mipmap图标资源
+**状态**: ✅ 已完成
+
+**任务清单**:
+- ✅ 补充缺失的mipmap-hdpi, mipmap-mdpi, mipmap-xhdpi, mipmap-xxhdpi, mipmap-xxxhdpi目录
+- ✅ 添加应用图标文件
+- ✅ 更新版本号到v0.1.3
+- ✅ 修复ic_launcher_foreground资源引用问题
+
 ### v0.2.0 (待规划 - 新功能)
 **目标**: 完善歌单管理和收藏功能
