@@ -3,6 +3,7 @@ package app.music_s2_qwen_code.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.music_s2_qwen_code.data.model.Song
+import app.music_s2_qwen_code.data.repository.DataRepository
 import app.music_s2_qwen_code.service.MusicPlaybackService
 import app.music_s2_qwen_code.utils.Logger
 import kotlinx.coroutines.Job
@@ -12,9 +13,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class PlayerViewModel : ViewModel() {
+class PlayerViewModel(private val dataRepository: DataRepository? = null) : ViewModel() {
     private val tag = "PlayerViewModel"
-    
+
     private var playbackService: MusicPlaybackService? = null
     private var progressUpdateJob: Job? = null
 
@@ -73,13 +74,37 @@ class PlayerViewModel : ViewModel() {
         )
     }
 
+    fun toggleFavorite() {
+        val songId = _uiState.value.currentSong?.id ?: return
+        viewModelScope.launch {
+            val isFav = dataRepository?.toggleFavorite(songId) ?: false
+            _uiState.value = _uiState.value.copy(isFavorite = isFav)
+        }
+    }
+
+    fun refreshFavoriteState() {
+        val songId = _uiState.value.currentSong?.id ?: return
+        viewModelScope.launch {
+            val isFav = dataRepository?.isFavorite(songId) ?: false
+            _uiState.value = _uiState.value.copy(isFavorite = isFav)
+        }
+    }
+
     private fun updatePlayerState() {
+        val currentSong = playbackService?.getCurrentSong()
         _uiState.value = _uiState.value.copy(
-            currentSong = playbackService?.getCurrentSong(),
+            currentSong = currentSong,
             isPlaying = playbackService?.isPlaying() ?: false,
             currentPosition = playbackService?.getCurrentPosition() ?: 0L,
             duration = playbackService?.getDuration() ?: 0L
         )
+        // 更新收藏状态
+        currentSong?.let { song ->
+            viewModelScope.launch {
+                val isFav = dataRepository?.isFavorite(song.id) ?: false
+                _uiState.value = _uiState.value.copy(isFavorite = isFav)
+            }
+        }
     }
 
     private fun startProgressUpdate() {
@@ -109,7 +134,8 @@ data class PlayerUiState(
     val isPlaying: Boolean = false,
     val currentPosition: Long = 0L,
     val duration: Long = 0L,
-    val playerMode: PlayerMode = PlayerMode.COVER
+    val playerMode: PlayerMode = PlayerMode.COVER,
+    val isFavorite: Boolean = false
 )
 
 enum class PlayerMode {

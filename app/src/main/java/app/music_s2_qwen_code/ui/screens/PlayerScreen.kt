@@ -11,7 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -29,11 +28,13 @@ fun PlayerScreen(
     currentPosition: Long,
     duration: Long,
     playerMode: PlayerMode,
+    isFavorite: Boolean,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onSeekTo: (Long) -> Unit,
     onToggleMode: () -> Unit,
+    onToggleFavorite: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -54,9 +55,11 @@ fun PlayerScreen(
         ) {
             PlayerTopBar(
                 currentSong = currentSong,
+                isFavorite = isFavorite,
+                onToggleFavorite = onToggleFavorite,
                 onDismiss = onDismiss
             )
-            
+
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -92,6 +95,8 @@ fun PlayerScreen(
 @Composable
 fun PlayerTopBar(
     currentSong: Song?,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
     onDismiss: () -> Unit
 ) {
     Row(
@@ -108,9 +113,9 @@ fun PlayerTopBar(
                 modifier = Modifier.size(32.dp)
             )
         }
-        
+
         Spacer(modifier = Modifier.weight(1f))
-        
+
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = currentSong?.title ?: "",
@@ -126,17 +131,17 @@ fun PlayerTopBar(
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        
+
         Spacer(modifier = Modifier.weight(1f))
-        
-        IconButton(onClick = {}) {
+
+        IconButton(onClick = onToggleFavorite) {
             Icon(
-                Icons.Default.FavoriteBorder,
-                contentDescription = "收藏",
-                tint = Color.White
+                if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                contentDescription = if (isFavorite) "取消收藏" else "收藏",
+                tint = if (isFavorite) AccentPink else Color.White
             )
         }
-        
+
         IconButton(onClick = {}) {
             Icon(
                 Icons.Default.Share,
@@ -170,41 +175,41 @@ fun CoverMode(
                 .clip(RoundedCornerShape(16.dp))
                 .background(Color.Gray)
         )
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         Text(
             text = currentSong?.title ?: "",
             color = Color.White,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.titleLarge
         )
-        
+
         Text(
             text = currentSong?.artist ?: "",
             color = SecondaryText,
             style = MaterialTheme.typography.bodyLarge
         )
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         Text(
             text = "暂无歌词",
             color = SecondaryText.copy(alpha = 0.6f),
             style = MaterialTheme.typography.bodyMedium
         )
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         ProgressBar(
             currentPosition = currentPosition,
             duration = duration,
             onSeekTo = onSeekTo,
             modifier = Modifier.padding(horizontal = 32.dp)
         )
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -221,7 +226,7 @@ fun CoverMode(
                     modifier = Modifier.size(36.dp)
                 )
             }
-            
+
             IconButton(
                 onClick = onPlayPause,
                 modifier = Modifier
@@ -236,7 +241,7 @@ fun CoverMode(
                     modifier = Modifier.size(40.dp)
                 )
             }
-            
+
             IconButton(
                 onClick = onNext,
                 modifier = Modifier.size(48.dp)
@@ -249,9 +254,9 @@ fun CoverMode(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(24.dp))
-        
+
         IconButton(
             onClick = onToggleMode
         ) {
@@ -279,7 +284,7 @@ fun LyricsMode(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         Text(
             text = currentSong?.title ?: "",
             color = Color.White,
@@ -290,9 +295,9 @@ fun LyricsMode(
             color = SecondaryText,
             style = MaterialTheme.typography.bodySmall
         )
-        
+
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -322,16 +327,16 @@ fun LyricsMode(
                 )
             }
         }
-        
+
         ProgressBar(
             currentPosition = currentPosition,
             duration = duration,
             onSeekTo = onSeekTo,
             modifier = Modifier.padding(horizontal = 32.dp)
         )
-        
+
         Spacer(modifier = Modifier.height(24.dp))
-        
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -344,7 +349,7 @@ fun LyricsMode(
                     tint = SecondaryText
                 )
             }
-            
+
             IconButton(
                 onClick = onToggleMode
             ) {
@@ -354,7 +359,7 @@ fun LyricsMode(
                     tint = AccentGreen
                 )
             }
-            
+
             IconButton(
                 onClick = onPlayPause,
                 modifier = Modifier
@@ -370,7 +375,7 @@ fun LyricsMode(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
@@ -382,13 +387,19 @@ fun ProgressBar(
     onSeekTo: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val progress = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f
-    
+    var sliderPosition by remember { mutableStateOf(currentPosition) }
+    val isUserDragging by remember { mutableStateOf(false) }
+    val displayPosition = if (isUserDragging) sliderPosition else currentPosition
+    val progress = if (duration > 0) displayPosition.toFloat() / duration.toFloat() else 0f
+
     Column(modifier = modifier) {
         Slider(
             value = progress,
             onValueChange = { newValue ->
-                onSeekTo((newValue * duration).toLong())
+                sliderPosition = (newValue * duration).toLong()
+            },
+            onValueChangeFinished = {
+                onSeekTo(sliderPosition)
             },
             colors = SliderDefaults.colors(
                 thumbColor = Color.White,
@@ -396,13 +407,13 @@ fun ProgressBar(
                 inactiveTrackColor = Color.White.copy(alpha = 0.3f)
             )
         )
-        
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = formatDuration(currentPosition),
+                text = formatDuration(displayPosition),
                 color = SecondaryText,
                 style = MaterialTheme.typography.bodySmall
             )

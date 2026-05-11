@@ -1,6 +1,7 @@
 package app.music_s2_qwen_code.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -8,10 +9,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,14 +20,23 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.music_s2_qwen_code.data.model.Playlist
 import app.music_s2_qwen_code.data.model.Song
 import app.music_s2_qwen_code.ui.theme.*
 
 @Composable
 fun MeScreen(
     songs: List<Song>,
+    favoriteSongs: List<Song>,
+    playlists: List<Playlist>,
+    onToggleFavorite: (Long) -> Unit,
+    onSongClick: (Song, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val favoriteSongIds = remember(favoriteSongs) {
+        favoriteSongs.map { it.id }.toSet()
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -61,9 +71,9 @@ fun MeScreen(
                                     .clip(CircleShape)
                                     .background(Color.Gray)
                             )
-                            
+
                             Spacer(modifier = Modifier.width(12.dp))
-                            
+
                             Column {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
@@ -87,9 +97,9 @@ fun MeScreen(
                                     }
                                 }
                             }
-                            
+
                             Spacer(modifier = Modifier.weight(1f))
-                            
+
                             Text(
                                 text = "88",
                                 color = Color.White,
@@ -97,9 +107,9 @@ fun MeScreen(
                                 style = MaterialTheme.typography.titleMedium
                             )
                         }
-                        
+
                         Spacer(modifier = Modifier.height(16.dp))
-                        
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly
@@ -112,26 +122,42 @@ fun MeScreen(
                     }
                 }
             }
-            
+
             item {
                 Spacer(modifier = Modifier.height(20.dp))
-                
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    MeStatItem(icon = Icons.Default.Favorite, value = "0", label = "收藏")
-                    MeStatItem(icon = Icons.Default.MusicNote, value = songs.size.toString(), label = "本地")
-                    MeStatItem(icon = Icons.Default.MusicNote, value = "0", label = "有声")
-                    MeStatItem(icon = Icons.Default.MusicNote, value = "0", label = "已购")
+                    MeStatItem(
+                        icon = Icons.Default.Favorite,
+                        value = favoriteSongs.size.toString(),
+                        label = "收藏"
+                    )
+                    MeStatItem(
+                        icon = Icons.Default.MusicNote,
+                        value = songs.size.toString(),
+                        label = "本地"
+                    )
+                    MeStatItem(
+                        icon = Icons.Default.Audiotrack,
+                        value = "0",
+                        label = "有声"
+                    )
+                    MeStatItem(
+                        icon = Icons.Default.ShoppingBag,
+                        value = "0",
+                        label = "已购"
+                    )
                 }
             }
-            
+
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
                         text = "最近播放",
@@ -139,9 +165,9 @@ fun MeScreen(
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleLarge
                     )
-                    
+
                     Spacer(modifier = Modifier.height(12.dp))
-                    
+
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -151,10 +177,34 @@ fun MeScreen(
                     }
                 }
             }
-            
+
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    Text(
+                        text = "我的收藏",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+
+            items(favoriteSongs) { song ->
+                SongItem(
+                    song = song,
+                    isFavorite = true,
+                    onToggleFavorite = { onToggleFavorite(song.id) },
+                    onClick = { onSongClick(song, songs.indexOf(song)) }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
                         text = "自建歌单",
@@ -162,7 +212,13 @@ fun MeScreen(
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleLarge
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
+            }
+
+            items(playlists) { playlist ->
+                PlaylistItem(playlist = playlist)
             }
         }
     }

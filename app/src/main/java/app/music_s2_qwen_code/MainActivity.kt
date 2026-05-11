@@ -12,13 +12,14 @@ import android.os.IBinder
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import app.music_s2_qwen_code.data.repository.DataRepository
 import app.music_s2_qwen_code.service.MusicPlaybackService
 import app.music_s2_qwen_code.ui.components.BottomNavigationBar
 import app.music_s2_qwen_code.ui.components.BottomNavTab
@@ -30,12 +31,13 @@ import app.music_s2_qwen_code.ui.theme.MusicS2QwenCodeTheme
 import app.music_s2_qwen_code.utils.Logger
 import app.music_s2_qwen_code.viewmodel.LibraryViewModel
 import app.music_s2_qwen_code.viewmodel.PlayerViewModel
-import app.music_s2_qwen_code.viewmodel.PlayerUiState
 
 class MainActivity : ComponentActivity() {
     private val tag = "MainActivity"
-    private val libraryViewModel: LibraryViewModel by viewModels()
-    private val playerViewModel: PlayerViewModel by viewModels()
+    
+    private lateinit var dataRepository: DataRepository
+    private lateinit var libraryViewModel: LibraryViewModel
+    private lateinit var playerViewModel: PlayerViewModel
 
     private var playbackService: MusicPlaybackService? = null
     private var isServiceBound = false
@@ -71,6 +73,29 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Logger.d(tag, "onCreate")
         Logger.init(this)
+
+        // 初始化数据仓库和ViewModel
+        dataRepository = (application as MusicApplication).dataRepository
+        
+        libraryViewModel = ViewModelProvider(this, object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                if (modelClass.isAssignableFrom(LibraryViewModel::class.java)) {
+                    @Suppress("UNCHECKED_CAST")
+                    return LibraryViewModel(dataRepository) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
+            }
+        })[LibraryViewModel::class.java]
+
+        playerViewModel = ViewModelProvider(this, object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                if (modelClass.isAssignableFrom(PlayerViewModel::class.java)) {
+                    @Suppress("UNCHECKED_CAST")
+                    return PlayerViewModel(dataRepository) as T
+                }
+                throw IllegalArgumentException("Unknown ViewModel class")
+            }
+        })[PlayerViewModel::class.java]
 
         setContent {
             MusicS2QwenCodeTheme {
@@ -135,17 +160,12 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen(
-    libraryViewModel: LibraryViewModel = viewModel(),
-    playerViewModel: PlayerViewModel = viewModel(),
+    libraryViewModel: LibraryViewModel,
+    playerViewModel: PlayerViewModel,
     onRefresh: () -> Unit,
     onSongClick: (List<app.music_s2_qwen_code.data.model.Song>, Int) -> Unit
 ) {
-    val songs by libraryViewModel.allSongs.collectAsState()
-    val selectedHomeTab by libraryViewModel.selectedTab.collectAsState()
-    val searchQuery by libraryViewModel.searchQuery.collectAsState()
-    val isLoading by libraryViewModel.isLoading.collectAsState()
-    val filteredSongs = libraryViewModel.getFilteredSongs()
-
+    val uiState by libraryViewModel.uiState.collectAsState()
     val playerUiState by playerViewModel.uiState.collectAsState()
 
     var selectedBottomTab by remember { mutableStateOf(BottomNavTab.HOME) }
@@ -156,19 +176,32 @@ fun MainScreen(
             Box(modifier = Modifier.weight(1f)) {
                 when (selectedBottomTab) {
                     BottomNavTab.HOME -> HomeScreen(
-                        songs = filteredSongs,
-                        selectedTab = selectedHomeTab,
-                        searchQuery = searchQuery,
-                        isLoading = isLoading,
+                        songs = uiState.allSongs,
+                        playlists = uiState.playlists,
+                        favoriteSongs = uiState.favoriteSongs,
+                        selectedTab = uiState.selectedTab,
+                        searchQuery = uiState.searchQuery,
+                        isLoading = uiState.isLoading,
                         onTabSelected = { libraryViewModel.selectTab(it) },
                         onSearchQueryChange = { libraryViewModel.updateSearchQuery(it) },
                         onRefresh = onRefresh,
+                        onCreatePlaylist = { libraryViewModel.createPlaylist(it) },
+                        onToggleFavorite = { libraryViewModel.toggleFavorite(it) },
                         onSongClick = { song, index ->
-                            onSongClick(songs, index)
+                            onSongClick(uiState.allSongs, index)
                             showPlayerScreen = true
                         }
                     )
-                    BottomNavTab.ME -> MeScreen(songs = songs)
+                    BottomNavTab.ME -> MeScreen(
+                        songs = uiState.allSongs,
+                        favoriteSongs = uiState.favoriteSongs,
+                        playlists = uiState.playlists,
+                        onToggleFavorite = { libraryViewModel.toggleFavorite(it) },
+                        onSongClick = { song, index ->
+                            onSongClick(uiState.allSongs, index)
+                            showPlayerScreen = true
+                        }
+                    )
                 }
             }
 
@@ -201,6 +234,7 @@ fun MainScreen(
                 currentPosition = playerUiState.currentPosition,
                 duration = playerUiState.duration,
                 playerMode = playerUiState.playerMode,
+                isFavorite = playerUiState.isFavorite,
                 onPlayPause = {
                     if (playerUiState.isPlaying) {
                         playerViewModel.pause()
@@ -212,6 +246,7 @@ fun MainScreen(
                 onPrevious = { playerViewModel.playPrevious() },
                 onSeekTo = { playerViewModel.seekTo(it) },
                 onToggleMode = { playerViewModel.togglePlayerMode() },
+                onToggleFavorite = { playerViewModel.toggleFavorite() },
                 onDismiss = { showPlayerScreen = false }
             )
         }
