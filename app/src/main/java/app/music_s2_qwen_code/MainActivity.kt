@@ -30,15 +30,16 @@ import app.music_s2_qwen_code.ui.theme.MusicS2QwenCodeTheme
 import app.music_s2_qwen_code.utils.Logger
 import app.music_s2_qwen_code.viewmodel.LibraryViewModel
 import app.music_s2_qwen_code.viewmodel.PlayerViewModel
+import app.music_s2_qwen_code.viewmodel.PlayerUiState
 
 class MainActivity : ComponentActivity() {
     private val tag = "MainActivity"
     private val libraryViewModel: LibraryViewModel by viewModels()
     private val playerViewModel: PlayerViewModel by viewModels()
-    
+
     private var playbackService: MusicPlaybackService? = null
     private var isServiceBound = false
-    
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             Logger.d(tag, "服务已连接")
@@ -47,13 +48,13 @@ class MainActivity : ComponentActivity() {
             playerViewModel.setPlaybackService(binder.getService())
             isServiceBound = true
         }
-        
+
         override fun onServiceDisconnected(name: ComponentName?) {
             Logger.d(tag, "服务已断开")
             isServiceBound = false
         }
     }
-    
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -65,11 +66,12 @@ class MainActivity : ComponentActivity() {
             Logger.w(tag, "部分权限被拒绝")
         }
     }
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Logger.d(tag, "onCreate")
-        
+        Logger.init(this)
+
         setContent {
             MusicS2QwenCodeTheme {
                 MainScreen(
@@ -83,14 +85,14 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        
+
         checkPermissionsAndLoadSongs()
         bindPlaybackService()
     }
-    
+
     private fun checkPermissionsAndLoadSongs() {
         val permissionsToRequest = mutableListOf<String>()
-        
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 permissionsToRequest.add(Manifest.permission.READ_MEDIA_AUDIO)
@@ -103,24 +105,24 @@ class MainActivity : ComponentActivity() {
                 permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
         }
-        
+
         if (permissionsToRequest.isNotEmpty()) {
             requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
         } else {
             loadSongs()
         }
     }
-    
+
     private fun loadSongs() {
         libraryViewModel.loadSongs(this)
     }
-    
+
     private fun bindPlaybackService() {
         Intent(this, MusicPlaybackService::class.java).also { intent ->
             bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
         }
     }
-    
+
     override fun onDestroy() {
         super.onDestroy()
         Logger.d(tag, "onDestroy")
@@ -143,16 +145,12 @@ fun MainScreen(
     val searchQuery by libraryViewModel.searchQuery.collectAsState()
     val isLoading by libraryViewModel.isLoading.collectAsState()
     val filteredSongs = libraryViewModel.getFilteredSongs()
-    
-    val currentSong by playerViewModel.currentSong.collectAsState()
-    val isPlaying by playerViewModel.isPlaying.collectAsState()
-    val currentPosition by playerViewModel.currentPosition.collectAsState()
-    val duration by playerViewModel.duration.collectAsState()
-    val playerMode by playerViewModel.playerMode.collectAsState()
-    
+
+    val playerUiState by playerViewModel.uiState.collectAsState()
+
     var selectedBottomTab by remember { mutableStateOf(BottomNavTab.HOME) }
     var showPlayerScreen by remember { mutableStateOf(false) }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f)) {
@@ -173,13 +171,13 @@ fun MainScreen(
                     BottomNavTab.ME -> MeScreen(songs = songs)
                 }
             }
-            
-            if (currentSong != null) {
+
+            if (playerUiState.currentSong != null) {
                 MiniPlayer(
-                    currentSong = currentSong,
-                    isPlaying = isPlaying,
+                    currentSong = playerUiState.currentSong,
+                    isPlaying = playerUiState.isPlaying,
                     onPlayPause = {
-                        if (isPlaying) {
+                        if (playerUiState.isPlaying) {
                             playerViewModel.pause()
                         } else {
                             playerViewModel.play()
@@ -189,22 +187,22 @@ fun MainScreen(
                     onClick = { showPlayerScreen = true }
                 )
             }
-            
+
             BottomNavigationBar(
                 selectedTab = selectedBottomTab,
                 onTabSelected = { selectedBottomTab = it }
             )
         }
-        
-        if (showPlayerScreen && currentSong != null) {
+
+        if (showPlayerScreen && playerUiState.currentSong != null) {
             PlayerScreen(
-                currentSong = currentSong,
-                isPlaying = isPlaying,
-                currentPosition = currentPosition,
-                duration = duration,
-                playerMode = playerMode,
+                currentSong = playerUiState.currentSong,
+                isPlaying = playerUiState.isPlaying,
+                currentPosition = playerUiState.currentPosition,
+                duration = playerUiState.duration,
+                playerMode = playerUiState.playerMode,
                 onPlayPause = {
-                    if (isPlaying) {
+                    if (playerUiState.isPlaying) {
                         playerViewModel.pause()
                     } else {
                         playerViewModel.play()
