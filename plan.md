@@ -81,12 +81,22 @@
 - ✅ 验证GitHub Actions构建成功
 - ✅ 发布v0.2.1版本
 
-### v0.2.2 (进行中 - 修复CI)
+### v0.2.2 (已完成 - 修复CI)
 **目标**: 修复GitHub Actions构建失败问题
-**状态**: 🔄 进行中
+**状态**: ✅ 已完成
 
 **任务清单**:
 - ✅ 检查并修复CI构建问题（添加缺失的AccentPink颜色定义）
 - ✅ 更新版本号到v0.2.2
+- ✅ 验证GitHub Actions构建成功
+- ✅ 发布v0.2.2版本
+
+### v0.2.3 (进行中 - 修复CI)
+**目标**: 修复GitHub Actions构建失败问题（缺失TypeConverters导入）
+**状态**: 🔄 进行中
+
+**任务清单**:
+- ✅ 检查并修复CI构建问题（修复AppDatabase.kt中缺失的TypeConverters导入）
+- ✅ 更新版本号到v0.2.3
 - 🔄 验证GitHub Actions构建成功
-- 🔄 发布v0.2.2版本
+- 🔄 发布v0.2.3版本
